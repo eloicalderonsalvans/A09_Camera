@@ -2,7 +2,6 @@ package com.example.fileprovider
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
@@ -12,70 +11,65 @@ import android.provider.MediaStore
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
-import androidx.viewbinding.BuildConfig
 import com.example.fileprovider.databinding.ActivityMainBinding
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
-    lateinit var binding: ActivityMainBinding
+    // Variable per al View Binding
+    private lateinit var binding: ActivityMainBinding
+
+    // Variable global per al fitxer on guardarem la foto
+    private lateinit var file: File
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Inflem el layout mitjançant View Binding
         binding = ActivityMainBinding.inflate(layoutInflater)
-        val view = binding.root
-        setContentView(view)
+        setContentView(binding.root)
 
-        binding.btnTakeFoto.setOnClickListener()
-        {
-            //startForResult.launch(Intent(MediaStore.ACTION_IMAGE_CAPTURE),)
-            //Fent servir File Provider ara haurem de gestionar millor el retorn de l'Intent de la Càmera
-            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).also{
-                it.resolveActivity(packageManager).also{component->
-                    //File pot ser un fitxer emmagatzemat a la memòria, no cal que estigui al magatzem del dispositiu
-                    //val photoFile:File
-
-                    //Crearem un métode que guardi el File que necessitem
-
+        // Configurem el botó per fer fotos
+        binding.btnTakeFoto.setOnClickListener {
+            // Creem un Intent per obrir l'aplicació de càmera
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { camIntent ->
+                // Comprovem que hi hagi una activitat capaç de gestionar l'Intent
+                camIntent.resolveActivity(packageManager)?.also {
+                    // Creem el fitxer temporal on guardarem la foto
                     createPhotoFile()
-
-                    //Uri sí que queda emmagatzemat a una ruta del magatzem del dispositiu
-                    val photoUri: Uri = FileProvider.getUriForFile(this,"com.example.fileprovider.fileprovider", file)
-
-                    it.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
-                    //Hem reanomenat l'iterador per defecte a component per poder continuar tinguen accés a l'iterador it que fa referència a l'intent. Sinó no ens deixaria
+                    // Obtenim un Uri segur a partir del File via FileProvider
+                    val photoUri: Uri = FileProvider.getUriForFile(
+                        this,
+                        "com.example.fileprovider.fileprovider",
+                        file
+                    )
+                    // Li diem a la càmera que guardi la imatge en aquest Uri
+                    camIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
                 }
             }
-            //Ara cridarem el launch passant el l'intent modificat
+            // Llancem la càmera i esperem el resultat
             startForResult.launch(intent)
-            //also vol dir que sobre aquest intent també farem més coses(also)
-
         }
     }
-    //Creem una variable global perquè file el necessitarem a més d'un lloc.
 
-    private lateinit var file:File
+    // Mètode que crea un fitxer temporal per a la foto
     private fun createPhotoFile() {
-        //Necessitem accedir a un directori extern
-        //Enviroment.DIRECTORY_PICTURES retorna la ruta on es guarden les images al dispositiu
+        // Directori privat a l'emmagatzematge extern per a imatges
         val dir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-
-        //Crearem un fitxer temporal
-        //El nom del fitxer serà "IMG_" seguit del temps actual en milisegons acabat en _. Ho indiquem al prefix:
-        //L'extensió l'indicarem al "sufix" i serà -jpg
-
-        file = File.createTempFile("IMG_${System.currentTimeMillis()}_",".jpg", dir)
+        // Creem un fitxer amb nom "IMG_<timestamp>_.jpg"
+        file = File.createTempFile(
+            "IMG_${System.currentTimeMillis()}_",
+            ".jpg",
+            dir
+        )
     }
 
-    private val startForResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult())
-    {
-            result: ActivityResult ->
-        if(result.resultCode == Activity.RESULT_OK)
-        {
-            val intent = result.data
-            //Ara el btmap es troba enregistrat al File ara
-            //val imageBitmap = intent?.extras?.get("data") as Bitmap
-            val imageBitmap = BitmapFactory.decodeFile(file.toString())
-            val imageView = binding.miniatureFoto
-            imageView.setImageBitmap(imageBitmap)
+    // Callback que rep el resultat de la càmera
+    private val startForResult =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
+            // Si la càmera ha tornat OK
+            if (result.resultCode == Activity.RESULT_OK) {
+                // Convertim el fitxer en un Bitmap i el mostrem
+                val imageBitmap = BitmapFactory.decodeFile(file.absolutePath)
+                binding.miniatureFoto.setImageBitmap(imageBitmap)
+            }
         }
-    }
 }
